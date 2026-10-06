@@ -20,6 +20,8 @@ suspend fun <T> sourceCall(source: Source, block: suspend () -> T): T =
         block()
     } catch (e: CancellationException) {
         throw e
+    } catch (e: SourceException) {
+        throw e
     } catch (e: Throwable) {
         throw mapToSourceException(source, e)
     }
