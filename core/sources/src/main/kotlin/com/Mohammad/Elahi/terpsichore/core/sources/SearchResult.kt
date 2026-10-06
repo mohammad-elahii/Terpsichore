@@ -5,4 +5,5 @@ data class SearchResult(
     val source: Source,
     val quality: Quality = Quality.UNKNOWN,
     val downloadable: Boolean = false,
+    val downloadFormats: List<Quality> = emptyList(),
 )
