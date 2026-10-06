@@ -6,6 +6,7 @@ data class Track(
     val artist: String,
     val album: String? = null,
     val durationSeconds: Int? = null,
+    val isrc: String? = null,
     val coverUrl: String? = null,
     val previewUrl: String? = null,
 )
