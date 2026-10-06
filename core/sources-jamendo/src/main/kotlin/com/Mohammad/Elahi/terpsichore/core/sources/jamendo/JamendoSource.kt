@@ -55,7 +55,7 @@ class JamendoSource(
                 title = title,
                 artist = artistName?.takeIf { it.isNotBlank() } ?: UNKNOWN_ARTIST,
                 album = albumName,
-                durationSeconds = duration?.toIntOrNull(),
+                durationSeconds = duration,
                 coverUrl = albumImage ?: image,
                 previewUrl = audio,
             ),

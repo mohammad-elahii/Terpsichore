@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -18,6 +20,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "JAMENDO_CLIENT_ID", "\"$jamendoClientId\"")
     }
 
     buildTypes {
@@ -33,8 +37,21 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
+
+fun loadLocalProperty(name: String): String? {
+    val properties = Properties()
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { properties.load(it) }
+    }
+    return properties.getProperty(name)
+}
+
+val jamendoClientId: String = loadLocalProperty("jamendo.clientId")
+    ?: "PLACEHOLDER_REGISTER_AT_DEVPORTAL_JAMENDO_COM"
 
 dependencies {
     implementation(project(":core:sources"))

@@ -20,7 +20,7 @@ internal data class JamendoSearchResponseDto(
 internal data class JamendoTrackDto(
     val id: String? = null,
     val name: String? = null,
-    val duration: String? = null,
+    val duration: Int? = null,
     @SerialName("artist_name") val artistName: String? = null,
     @SerialName("album_name") val albumName: String? = null,
     @SerialName("album_image") val albumImage: String? = null,
