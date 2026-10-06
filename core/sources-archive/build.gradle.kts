@@ -21,4 +21,8 @@ android {
 
 dependencies {
     implementation(project(":core:sources"))
+    testImplementation(libs.junit)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.ktor.serialization.kotlinx.json)
 }

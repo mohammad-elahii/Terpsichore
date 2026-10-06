@@ -3,6 +3,7 @@ package com.Mohammad.Elahi.terpsichore.core.sources.network
 import com.Mohammad.Elahi.terpsichore.core.sources.Source
 import com.Mohammad.Elahi.terpsichore.core.sources.SourceException
 import com.Mohammad.Elahi.terpsichore.core.sources.SourceFailureReason
+import io.ktor.client.call.NoTransformationFoundException
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ServerResponseException
@@ -37,6 +38,7 @@ fun mapToSourceException(source: Source, cause: Throwable): SourceException {
             else -> SourceFailureReason.BAD_REQUEST
         }
         is ServerResponseException -> SourceFailureReason.SERVER_ERROR
+        is NoTransformationFoundException -> SourceFailureReason.PARSE_ERROR
         is JsonConvertException -> SourceFailureReason.PARSE_ERROR
         is SerializationException -> SourceFailureReason.PARSE_ERROR
         else -> SourceFailureReason.UNKNOWN
@@ -44,7 +46,7 @@ fun mapToSourceException(source: Source, cause: Throwable): SourceException {
     return SourceException(
         source = source,
         reason = reason,
-        message = cause.message ?: "Source request failed",
+        message = "${cause.javaClass.simpleName}: ${cause.message ?: "Source request failed"}",
         cause = cause,
     )
 }
