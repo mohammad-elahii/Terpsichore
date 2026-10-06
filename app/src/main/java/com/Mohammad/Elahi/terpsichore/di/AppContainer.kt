@@ -3,6 +3,7 @@ package com.Mohammad.Elahi.terpsichore.di
 import android.content.Context
 import com.Mohammad.Elahi.terpsichore.BuildConfig
 import com.Mohammad.Elahi.terpsichore.core.sources.MusicSource
+import com.Mohammad.Elahi.terpsichore.core.sources.SearchAggregator
 import com.Mohammad.Elahi.terpsichore.core.sources.Source
 import com.Mohammad.Elahi.terpsichore.core.sources.archive.ArchiveSource
 import com.Mohammad.Elahi.terpsichore.core.sources.deezer.DeezerSource
@@ -21,4 +22,6 @@ class AppContainer(context: Context) {
 
     fun source(id: Source): MusicSource? =
         sources.firstOrNull { it.id == id }
+
+    val searchAggregator = SearchAggregator(sources)
 }
