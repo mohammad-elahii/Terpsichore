@@ -24,7 +24,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.Mohammad.Elahi.terpsichore.R
 import com.Mohammad.Elahi.terpsichore.core.sources.MusicSource
-import com.Mohammad.Elahi.terpsichore.core.sources.Track
+import com.Mohammad.Elahi.terpsichore.core.sources.SearchResult
+import com.Mohammad.Elahi.terpsichore.core.sources.toChip
 import com.Mohammad.Elahi.terpsichore.di.AppContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,7 +34,7 @@ import kotlinx.coroutines.flow.update
 
 data class SearchUiState(
     val query: String = "",
-    val results: List<Track> = emptyList(),
+    val results: List<SearchResult> = emptyList(),
     val loading: Boolean = false,
 )
 
@@ -77,8 +78,8 @@ fun SearchScreen(container: AppContainer, modifier: Modifier = Modifier) {
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.results, key = { "${it.source.name}-${it.id}" }) { track ->
-                    TrackRow(track)
+                items(state.results, key = { "${it.source.name}-${it.track.id}" }) { result ->
+                    TrackRow(result)
                 }
             }
         }
@@ -86,7 +87,9 @@ fun SearchScreen(container: AppContainer, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TrackRow(track: Track, modifier: Modifier = Modifier) {
+private fun TrackRow(result: SearchResult, modifier: Modifier = Modifier) {
+    val track = result.track
+    val chip = result.quality.toChip()
     Column(modifier = modifier.fillMaxWidth()) {
         Text(text = track.title, style = MaterialTheme.typography.titleMedium)
         Text(
@@ -94,8 +97,7 @@ private fun TrackRow(track: Track, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
-            text = listOf(track.source.name, track.quality.label)
-                .filter { it.isNotBlank() }
+            text = listOfNotNull(result.source.name, chip.label.takeIf { chip.visible })
                 .joinToString(" · "),
             style = MaterialTheme.typography.labelSmall,
         )

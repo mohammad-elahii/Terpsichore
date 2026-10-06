@@ -1,9 +1,8 @@
 package com.Mohammad.Elahi.terpsichore.core.sources
 
-enum class SourceId {
+enum class Source {
     DEEZER,
     JAMENDO,
     ARCHIVE,
     AUDIUS,
-    YOUTUBE_MUSIC,
 }

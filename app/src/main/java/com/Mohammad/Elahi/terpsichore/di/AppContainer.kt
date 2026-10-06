@@ -2,29 +2,15 @@ package com.Mohammad.Elahi.terpsichore.di
 
 import android.content.Context
 import com.Mohammad.Elahi.terpsichore.core.sources.MusicSource
-import com.Mohammad.Elahi.terpsichore.core.sources.SourceId
+import com.Mohammad.Elahi.terpsichore.core.sources.Source
 import com.Mohammad.Elahi.terpsichore.core.sources.archive.ArchiveSource
 import com.Mohammad.Elahi.terpsichore.core.sources.deezer.DeezerSource
 import com.Mohammad.Elahi.terpsichore.core.sources.jamendo.JamendoSource
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.serialization.kotlinx.json.json
-import kotlinx.serialization.json.Json
+import com.Mohammad.Elahi.terpsichore.core.sources.network.createHttpClient
 
 class AppContainer(context: Context) {
 
-    private val json = Json {
-        ignoreUnknownKeys = true
-        explicitNulls = false
-    }
-
-    val httpClient: HttpClient = HttpClient(OkHttp) {
-        expectSuccess = true
-        install(ContentNegotiation) {
-            json(json)
-        }
-    }
+    val httpClient = createHttpClient()
 
     val sources: List<MusicSource> = listOf(
         DeezerSource(httpClient),
@@ -32,6 +18,6 @@ class AppContainer(context: Context) {
         ArchiveSource(httpClient),
     )
 
-    fun source(id: SourceId): MusicSource? =
+    fun source(id: Source): MusicSource? =
         sources.firstOrNull { it.id == id }
 }

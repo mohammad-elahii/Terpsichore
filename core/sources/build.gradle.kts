@@ -20,4 +20,11 @@ android {
 
 dependencies {
     api(libs.kotlinx.coroutines.core)
+    api(libs.ktor.client.core)
+    api(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    testImplementation(libs.junit)
+    testImplementation(libs.ktor.client.mock)
 }
