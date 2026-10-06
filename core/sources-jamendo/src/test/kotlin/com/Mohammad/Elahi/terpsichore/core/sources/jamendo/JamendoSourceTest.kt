@@ -30,7 +30,7 @@ class JamendoSourceTest {
             {
               "id": "1109",
               "name": "Sunny Side Up",
-              "duration": "189",
+              "duration": 189,
               "artist_name": "Ghost K",
               "album_name": "Stop The Blue",
               "album_image": "https://imgjam.com/albums/102/1/1.jpg",

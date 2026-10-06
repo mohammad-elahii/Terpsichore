@@ -1,6 +1,7 @@
 package com.Mohammad.Elahi.terpsichore.di
 
 import android.content.Context
+import com.Mohammad.Elahi.terpsichore.BuildConfig
 import com.Mohammad.Elahi.terpsichore.core.sources.MusicSource
 import com.Mohammad.Elahi.terpsichore.core.sources.Source
 import com.Mohammad.Elahi.terpsichore.core.sources.archive.ArchiveSource
@@ -14,7 +15,7 @@ class AppContainer(context: Context) {
 
     val sources: List<MusicSource> = listOf(
         DeezerSource(httpClient),
-        JamendoSource(httpClient),
+        JamendoSource(httpClient, BuildConfig.JAMENDO_CLIENT_ID),
         ArchiveSource(httpClient),
     )
 
