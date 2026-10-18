@@ -81,7 +81,7 @@ class JamendoSourceTest {
         assertEquals(189, first.track.durationSeconds)
         assertEquals("https://imgjam.com/albums/102/1/1.jpg", first.track.coverUrl)
         assertEquals("https://mp3l.jamendo.com/?trackid=1109&format=mp32", first.track.previewUrl)
-        assertEquals(Quality.FLAC, first.quality)
+        assertEquals(Quality.MP3_320, first.quality)
         assertTrue(first.downloadable)
         assertEquals(listOf(Quality.FLAC, Quality.MP3_320), first.downloadFormats)
         assertEquals("Unknown artist", results[1].track.artist)

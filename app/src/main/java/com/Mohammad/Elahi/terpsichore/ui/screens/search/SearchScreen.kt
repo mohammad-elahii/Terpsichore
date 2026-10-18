@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,50 +50,116 @@ import com.Mohammad.Elahi.terpsichore.core.sources.SearchResult
 import com.Mohammad.Elahi.terpsichore.core.sources.Source
 import com.Mohammad.Elahi.terpsichore.core.sources.toChip
 import com.Mohammad.Elahi.terpsichore.di.AppContainer
+import com.Mohammad.Elahi.terpsichore.ui.preview.PreviewPlayer
+import com.Mohammad.Elahi.terpsichore.ui.preview.PreviewState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+private const val DEBOUNCE_MS = 400L
+private const val MIN_QUERY_LENGTH = 2
+
 data class SearchUiState(
     val query: String = "",
     val results: List<SearchResult> = emptyList(),
     val loading: Boolean = false,
     val failed: Boolean = false,
+    val partialFailures: Boolean = false,
 )
 
-class SearchViewModel(private val aggregator: SearchAggregator) : ViewModel() {
+class SearchViewModel(
+    private val aggregator: SearchAggregator,
+    private val sources: List<com.Mohammad.Elahi.terpsichore.core.sources.MusicSource>,
+) : ViewModel() {
+
+    val previewPlayer = PreviewPlayer(viewModelScope)
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
+    private var debounceJob: Job? = null
+    private var searchGeneration: Int = 0
+
     fun onQueryChange(query: String) {
+        debounceJob?.cancel()
+        debounceJob = null
+        val trimmed = query.trim()
+        if (trimmed.length < MIN_QUERY_LENGTH) {
+            searchGeneration++
+            _uiState.update {
+                it.copy(
+                    query = query,
+                    results = emptyList(),
+                    loading = false,
+                    failed = false,
+                    partialFailures = false,
+                )
+            }
+            return
+        }
         _uiState.update { it.copy(query = query) }
+        debounceJob = viewModelScope.launch {
+            delay(DEBOUNCE_MS)
+            performSearch(trimmed)
+        }
     }
 
     fun search() {
+        debounceJob?.cancel()
+        debounceJob = null
         val query = _uiState.value.query.trim()
-        if (query.isEmpty() || _uiState.value.loading) return
+        performSearch(query)
+    }
+
+    private fun performSearch(query: String) {
+        if (query.isEmpty()) return
+        val generation = ++searchGeneration
+        _uiState.update { it.copy(loading = true, failed = false, partialFailures = false) }
         viewModelScope.launch {
-            _uiState.update { it.copy(loading = true, failed = false) }
             try {
-                val results = aggregator.search(query)
-                _uiState.update { it.copy(results = results, loading = false) }
+                val outcome = aggregator.searchWithFailures(query)
+                if (generation != searchGeneration) return@launch
+                _uiState.update {
+                    it.copy(
+                        results = outcome.results,
+                        loading = false,
+                        failed = outcome.allSourcesFailed,
+                        partialFailures = outcome.failures.isNotEmpty() && outcome.results.isNotEmpty(),
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                if (generation != searchGeneration) return@launch
                 _uiState.update { it.copy(loading = false, failed = true) }
             }
         }
+    }
+
+    fun previewUrlFor(result: SearchResult): suspend () -> String? = {
+        result.track.previewUrl ?: sources
+            .firstOrNull { it.id == result.source }
+            ?.previewUrl(result.track.id)
+    }
+
+    override fun onCleared() {
+        previewPlayer.release()
+        super.onCleared()
     }
 }
 
 @Composable
 fun SearchScreen(container: AppContainer, modifier: Modifier = Modifier) {
-    val viewModel: SearchViewModel = viewModel { SearchViewModel(container.searchAggregator) }
+    val viewModel: SearchViewModel = viewModel {
+        SearchViewModel(container.searchAggregator, container.sources)
+    }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val previewState by viewModel.previewPlayer.state.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -118,17 +185,25 @@ fun SearchScreen(container: AppContainer, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
             )
+        } else if (state.partialFailures && state.results.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.search_partial),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
         }
         Box(modifier = Modifier.weight(1f)) {
             if (state.results.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource(
-                            if (state.query.isBlank()) R.string.search_empty_prompt
-                            else R.string.search_no_results
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                if (!state.loading && !state.failed) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(
+                                if (state.query.isBlank()) R.string.search_empty_prompt
+                                else R.string.search_no_results
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
@@ -137,7 +212,12 @@ fun SearchScreen(container: AppContainer, modifier: Modifier = Modifier) {
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 8.dp),
                 ) {
                     items(state.results, key = { "${it.source.name}-${it.track.id}" }) { result ->
-                        TrackRow(result)
+                        TrackRow(
+                            result = result,
+                            previewState = previewState,
+                            player = viewModel.previewPlayer,
+                            urlProvider = viewModel.previewUrlFor(result),
+                        )
                     }
                 }
             }
@@ -146,8 +226,16 @@ fun SearchScreen(container: AppContainer, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TrackRow(result: SearchResult, modifier: Modifier = Modifier) {
+private fun TrackRow(
+    result: SearchResult,
+    previewState: PreviewState,
+    player: PreviewPlayer,
+    urlProvider: suspend () -> String?,
+    modifier: Modifier = Modifier,
+) {
     val track = result.track
+    val rowKey = "${result.source.name}-${track.id}"
+    val previewActive = previewState.key == rowKey
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -183,11 +271,20 @@ private fun TrackRow(result: SearchResult, modifier: Modifier = Modifier) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                IconButton(onClick = {}, enabled = false) {
-                    Icon(
-                        imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(R.string.btn_preview),
-                    )
+                if (result.source == Source.DEEZER) {
+                    IconButton(
+                        onClick = { player.toggle(rowKey, urlProvider) },
+                        enabled = true,
+                    ) {
+                        Icon(
+                            imageVector = if (previewActive && (previewState.playing || previewState.loading)) {
+                                Icons.Filled.Stop
+                            } else {
+                                Icons.Filled.PlayArrow
+                            },
+                            contentDescription = stringResource(R.string.btn_preview),
+                        )
+                    }
                 }
                 IconButton(onClick = {}, enabled = false) {
                     Icon(
@@ -195,6 +292,15 @@ private fun TrackRow(result: SearchResult, modifier: Modifier = Modifier) {
                         contentDescription = stringResource(R.string.btn_download),
                     )
                 }
+            }
+            if (previewActive) {
+                LinearProgressIndicator(
+                    progress = { previewState.progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
             }
             Row(
                 modifier = Modifier.padding(top = 8.dp),
