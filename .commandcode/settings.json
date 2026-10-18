@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "powershell",
+      "Shell(findstr:*)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

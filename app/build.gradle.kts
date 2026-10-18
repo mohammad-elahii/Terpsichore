@@ -6,6 +6,18 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+fun loadLocalProperty(name: String): String? {
+    val properties = Properties()
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { properties.load(it) }
+    }
+    return properties.getProperty(name)
+}
+
+val jamendoClientId: String = loadLocalProperty("jamendo.clientId")
+    ?: "PLACEHOLDER_REGISTER_AT_DEVPORTAL_JAMENDO_COM"
+
 android {
     namespace = "com.Mohammad.Elahi.terpsichore"
     compileSdk {
@@ -40,18 +52,6 @@ android {
         buildConfig = true
     }
 }
-
-fun loadLocalProperty(name: String): String? {
-    val properties = Properties()
-    val file = rootProject.file("local.properties")
-    if (file.exists()) {
-        file.inputStream().use { properties.load(it) }
-    }
-    return properties.getProperty(name)
-}
-
-val jamendoClientId: String = loadLocalProperty("jamendo.clientId")
-    ?: "PLACEHOLDER_REGISTER_AT_DEVPORTAL_JAMENDO_COM"
 
 dependencies {
     implementation(project(":core:sources"))

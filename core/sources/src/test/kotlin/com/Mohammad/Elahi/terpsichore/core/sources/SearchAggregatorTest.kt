@@ -84,7 +84,7 @@ class SearchAggregatorTest {
     }
 
     @Test
-    fun keepsDuplicatesWithinTheSameSource() = runBlocking {
+    fun collapsesDuplicatesWithinTheSameSource() = runBlocking {
         val aggregator = SearchAggregator(
             listOf(
                 FakeSource(
@@ -92,6 +92,7 @@ class SearchAggregatorTest {
                     listOf(
                         result(Source.DEEZER, "d1", "Same Title", "Same Artist"),
                         result(Source.DEEZER, "d2", "Same Title", "Same Artist"),
+                        result(Source.DEEZER, "d3", "Different Song", "Same Artist"),
                     ),
                 ),
             )
@@ -99,7 +100,7 @@ class SearchAggregatorTest {
 
         val merged = aggregator.search("same")
 
-        assertEquals(listOf("d1", "d2"), merged.map { it.track.id })
+        assertEquals(listOf("d1", "d3"), merged.map { it.track.id })
     }
 
     @Test
@@ -176,6 +177,23 @@ class FuzzyMatchTest {
     fun artistPrefixTheIsIgnored() {
         assertTrue(
             FuzzyMatch.isSameTrack("Yesterday", "The Beatles", "Yesterday", "Beatles")
+        )
+    }
+
+    @Test
+    fun artistFeatureSuffixIsIgnored() {
+        assertTrue(
+            FuzzyMatch.isSameTrack("Harder, Better, Faster, Stronger", "Daft Punk", "Harder Better Faster Stronger", "Daft Punk & Pharrell")
+        )
+        assertTrue(
+            FuzzyMatch.isSameTrack("Yesterday", "The Beatles", "Yesterday", "The Beatles")
+        )
+    }
+
+    @Test
+    fun nearMissArtistsAreNotTheSameTrack() {
+        assertFalse(
+            FuzzyMatch.isSameTrack("WNBA", "Drake", "WNA", "SweepersENT")
         )
     }
 

@@ -5,10 +5,26 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
+data class SourceFailure(
+    val source: Source,
+    val reason: SourceFailureReason,
+)
+
+data class SearchOutcome(
+    val results: List<SearchResult>,
+    val failures: List<SourceFailure>,
+) {
+    val allSourcesFailed: Boolean
+        get() = failures.isNotEmpty() && results.isEmpty()
+}
+
 class SearchAggregator(private val sources: List<MusicSource>) {
 
-    suspend fun search(query: String, limitPerSource: Int = 25): List<SearchResult> {
-        if (query.isBlank()) return emptyList()
+    suspend fun search(query: String, limitPerSource: Int = 25): List<SearchResult> =
+        searchWithFailures(query, limitPerSource).results
+
+    suspend fun searchWithFailures(query: String, limitPerSource: Int = 25): SearchOutcome {
+        if (query.isBlank()) return SearchOutcome(emptyList(), emptyList())
         val perSource = coroutineScope {
             sources.map { source ->
                 async {
@@ -16,25 +32,34 @@ class SearchAggregator(private val sources: List<MusicSource>) {
                         source.search(query, limitPerSource)
                     } catch (e: CancellationException) {
                         throw e
+                    } catch (e: SourceException) {
+                        SourceFailure(e.source, e.reason)
                     } catch (_: Exception) {
-                        emptyList()
+                        SourceFailure(source.id, SourceFailureReason.UNKNOWN)
                     }
                 }
             }
         }.awaitAll()
-        return interleave(perSource).fold(emptyList()) { accepted, candidate ->
+        val results = perSource.filterIsInstance<List<SearchResult>>()
+        val failures = perSource.filterIsInstance<SourceFailure>()
+        return SearchOutcome(
+            results = deduplicate(interleave(results)),
+            failures = failures,
+        )
+    }
+
+    private fun deduplicate(ordered: List<SearchResult>): List<SearchResult> =
+        ordered.fold(emptyList()) { accepted, candidate ->
             val isDuplicate = accepted.any { acceptedEntry ->
-                acceptedEntry.source != candidate.source &&
-                    FuzzyMatch.isSameTrack(
-                        acceptedEntry.track.title,
-                        acceptedEntry.track.artist,
-                        candidate.track.title,
-                        candidate.track.artist,
-                    )
+                FuzzyMatch.isSameTrack(
+                    acceptedEntry.track.title,
+                    acceptedEntry.track.artist,
+                    candidate.track.title,
+                    candidate.track.artist,
+                )
             }
             if (isDuplicate) accepted else accepted + candidate
         }
-    }
 
     private fun interleave(lists: List<List<SearchResult>>): List<SearchResult> {
         val iterators = lists.map { it.iterator() }
@@ -78,7 +103,14 @@ internal object FuzzyMatch {
         val shorter = if (a.length <= b.length) a else b
         val longer = if (a.length <= b.length) b else a
         if (shorter.length >= MIN_CONTAINS_LENGTH && longer.contains(shorter)) return true
+        if (tokenSubset(a, b)) return true
         return levenshteinRatio(a, b) >= SIMILARITY_THRESHOLD
+    }
+
+    private fun tokenSubset(a: String, b: String): Boolean {
+        val aTokens = a.split(' ').toSet()
+        val bTokens = b.split(' ').toSet()
+        return bTokens.containsAll(aTokens) || aTokens.containsAll(bTokens)
     }
 
     private fun levenshteinRatio(a: String, b: String): Double =

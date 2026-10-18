@@ -60,7 +60,7 @@ class JamendoSource(
                 previewUrl = audio,
             ),
             source = Source.JAMENDO,
-            quality = if (downloadable) Quality.FLAC else Quality.UNKNOWN,
+            quality = if (downloadable) Quality.MP3_320 else Quality.UNKNOWN,
             downloadable = downloadable,
             downloadFormats = if (downloadable) {
                 listOf(Quality.FLAC, Quality.MP3_320)
